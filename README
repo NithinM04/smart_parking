@@ -1,0 +1,79 @@
+# 🚗 Smart Parking System
+
+An IoT-based Smart Parking System that automates vehicle entry, parking session tracking, and vehicle exit using **ESP32, RFID, ultrasonic sensing, MySQL, and a Flask web dashboard**.
+
+The project was developed while exploring how embedded systems, sensors, databases, and web technologies can work together to solve a real-world automation problem.
+
+---
+
+## 📌 Project Overview
+
+Traditional parking systems often depend on manual verification and monitoring.
+
+The goal of this project was to explore:
+
+> **How can vehicle entry, parking status, and exit activity be automatically detected, recorded, and monitored?**
+
+To solve this, the system combines:
+
+- ESP32 for hardware control
+- RC522 RFID for vehicle/user identification
+- Servo motor for automated gate control
+- Ultrasonic sensor for exit detection
+- MySQL for storing parking and access information
+- Flask for the monitoring dashboard
+- HTML, CSS and JavaScript for the web interface
+
+The system automatically creates and closes parking sessions and provides a dashboard for monitoring parking activity.
+
+---
+
+## 🎯 Objectives
+
+The main objectives of this project are:
+
+- Automate vehicle entry using RFID
+- Verify registered users
+- Control the parking gate automatically
+- Record parking entry time
+- Detect vehicle exit
+- Record parking exit time
+- Maintain parking session status
+- Store access logs
+- Display parking information through a web dashboard
+
+---
+
+## ✨ Features
+
+### 🔐 RFID-Based Vehicle Identification
+
+The RC522 RFID reader scans the vehicle/user RFID card.
+
+The ESP32 checks the RFID UID against the registered users stored in MySQL.
+
+### 🚪 Automatic Gate Control
+
+When an authorized RFID card is detected:
+
+1. The ESP32 verifies the RFID.
+2. A parking session is created.
+3. The servo motor opens the gate.
+4. The vehicle can enter.
+
+### 🅿️ Parking Session Management
+
+Each parking session contains:
+
+- RFID UID
+- Owner name
+- Vehicle number
+- Entry time
+- Exit time
+- Parking status
+
+Parking status can be:
+
+```text
+PARKED
+COMPLETED
