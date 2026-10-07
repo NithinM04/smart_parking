@@ -1,8 +1,8 @@
 # 🚗 Smart Parking System
 
-An IoT-based Smart Parking System that automates vehicle entry, parking session tracking, and vehicle exit using **ESP32, RFID, ultrasonic sensing, MySQL, and a Flask web dashboard**.
+An IoT-based **Smart Parking System** that automates vehicle entry using **ESP32, RFID, ultrasonic sensing, servo motor, MySQL, and a Flask web dashboard**.
 
-The project was developed while exploring how embedded systems, sensors, databases, and web technologies can work together to solve a real-world automation problem.
+The project demonstrates how embedded systems, sensors, databases, and web technologies can be integrated to build a real-world parking automation system.
 
 ---
 
@@ -10,21 +10,21 @@ The project was developed while exploring how embedded systems, sensors, databas
 
 Traditional parking systems often depend on manual verification and monitoring.
 
-The goal of this project was to explore:
+The goal of this project is to explore:
 
-> **How can vehicle entry, parking status, and exit activity be automatically detected, recorded, and monitored?**
+> **How can vehicle entry be automatically authorized, recorded, and monitored through an IoT-based system?**
 
-To solve this, the system combines:
+The system combines:
 
 - ESP32 for hardware control
 - RC522 RFID for vehicle/user identification
-- Servo motor for automated gate control
-- Ultrasonic sensor for exit detection
-- MySQL for storing parking and access information
-- Flask for the monitoring dashboard
-- HTML, CSS and JavaScript for the web interface
+- Servo motor for automatic gate control
+- Ultrasonic sensor for detecting vehicle movement at the entry gate
+- MySQL for storing vehicle, parking, and access information
+- Flask for the web dashboard
+- HTML, CSS, and JavaScript for the dashboard interface
 
-The system automatically creates and closes parking sessions and provides a dashboard for monitoring parking activity.
+The current implementation focuses on **vehicle entry management**. Exit processing is intentionally not implemented.
 
 ---
 
@@ -33,14 +33,14 @@ The system automatically creates and closes parking sessions and provides a dash
 The main objectives of this project are:
 
 - Automate vehicle entry using RFID
-- Verify registered users
+- Verify registered RFID users
 - Control the parking gate automatically
-- Record parking entry time
-- Detect vehicle exit
-- Record parking exit time
+- Record successful vehicle entries
+- Store vehicle and owner information
 - Maintain parking session status
-- Store access logs
-- Display parking information through a web dashboard
+- Record authorized and denied RFID access attempts
+- Monitor parking information through a web dashboard
+- Display the number of vehicles and access activity
 
 ---
 
@@ -48,32 +48,25 @@ The main objectives of this project are:
 
 ### 🔐 RFID-Based Vehicle Identification
 
-The RC522 RFID reader scans the vehicle/user RFID card.
+The RC522 RFID reader scans the RFID card.
 
-The ESP32 checks the RFID UID against the registered users stored in MySQL.
+The ESP32 checks the RFID UID against registered users stored in MySQL.
 
-### 🚪 Automatic Gate Control
-
-When an authorized RFID card is detected:
-
-1. The ESP32 verifies the RFID.
-2. A parking session is created.
-3. The servo motor opens the gate.
-4. The vehicle can enter.
-
-### 🅿️ Parking Session Management
-
-Each parking session contains:
+The system verifies:
 
 - RFID UID
+- User status
 - Owner name
 - Vehicle number
-- Entry time
-- Exit time
-- Parking status
 
-Parking status can be:
+Only registered and active RFID cards are allowed to enter.
+
+---
+
+### 🚦 RFID Access Control
+
+The system provides two access results:
 
 ```text
-PARKED
-COMPLETED
+ALLOWED
+DENIED
