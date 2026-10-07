@@ -5,88 +5,229 @@
 
     <meta charset="UTF-8">
 
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
-    <title>Smart Parking System</title>
+    <title>
+        Smart Parking System
+    </title>
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
 
 </head>
 
+
 <body>
 
-    <!-- SIDEBAR -->
+
+    <!-- ======================================================
+         SIDEBAR
+    ======================================================= -->
 
     <aside class="sidebar">
 
+
+        <!-- LOGO -->
+
         <div class="logo">
 
-            <div class="logo-icon">P</div>
+            <div class="logo-icon">
+                P
+            </div>
 
             <div>
-                <h2>Smart Parking</h2>
-                <span>Management System</span>
+
+                <h2>
+                    Smart Parking
+                </h2>
+
+                <span>
+                    Management System
+                </span>
+
             </div>
 
         </div>
 
 
+        <!-- NAVIGATION -->
+
         <nav>
 
-            <a href="#" class="nav-item active">
-                <span>▣</span>
+
+            <a
+                href="#"
+                class="nav-item active"
+                data-section="dashboard"
+            >
+
+                <span>
+                    ▣
+                </span>
+
                 Dashboard
+
             </a>
 
-            <a href="#parking" class="nav-item">
-                <span>🚗</span>
+
+            <a
+                href="#parking"
+                class="nav-item"
+                data-section="parking"
+            >
+
+                <span>
+                    🚗
+                </span>
+
                 Parking
+
             </a>
 
-            <a href="#activity" class="nav-item">
-                <span>↕</span>
+
+            <a
+                href="#activity"
+                class="nav-item"
+                data-section="activity"
+            >
+
+                <span>
+                    ↕
+                </span>
+
                 Activity
+
             </a>
 
-            <a href="#access" class="nav-item">
-                <span>◉</span>
+
+            <a
+                href="#access"
+                class="nav-item"
+                data-section="access"
+            >
+
+                <span>
+                    ◉
+                </span>
+
                 RFID Access
+
             </a>
+
+
+            <a
+                href="#login-activity"
+                class="nav-item"
+                data-section="login-activity"
+            >
+
+                <span>
+                    ♙
+                </span>
+
+                Login Activity
+
+            </a>
+
 
         </nav>
 
 
+        <!-- SIDEBAR BOTTOM -->
+
         <div class="sidebar-bottom">
+
+
+            <!-- LOGGED USER -->
+
+            <div class="logged-user-card">
+
+
+                <div class="user-avatar">
+
+                    {{ (full_name or username or "U")[0]|upper }}
+
+                </div>
+
+
+                <div class="user-details">
+
+                    <strong>
+                        {{ full_name or username }}
+                    </strong>
+
+                    <small>
+                        {{ role }}
+                    </small>
+
+                </div>
+
+
+                <a
+                    href="{{ url_for('logout') }}"
+                    class="logout-button"
+                    title="Logout"
+                >
+
+                    ↪
+
+                </a>
+
+
+            </div>
+
+
+            <!-- SYSTEM STATUS -->
 
             <div class="system-status">
 
                 <span class="status-dot"></span>
 
                 <div>
-                    <strong>System Online</strong>
-                    <small>ESP32 Connected</small>
+
+                    <strong>
+                        System Online
+                    </strong>
+
+                    <small>
+                        MySQL Connected
+                    </small>
+
                 </div>
 
             </div>
 
+
         </div>
+
 
     </aside>
 
 
-    <!-- MAIN CONTENT -->
+    <!-- ======================================================
+         MAIN CONTENT
+    ======================================================= -->
 
     <main class="main-content">
+
 
         <!-- HEADER -->
 
         <header class="topbar">
 
+
             <div>
 
-                <h1>Dashboard</h1>
+                <h1 id="pageTitle">
+                    Dashboard
+                </h1>
 
-                <p>
+                <p id="pageSubtitle">
                     Smart Parking System Overview
                 </p>
 
@@ -95,193 +236,452 @@
 
             <div class="topbar-right">
 
-                <span class="live-indicator">
-                    <span class="live-dot"></span>
-                    LIVE
+
+                <span class="user-topbar">
+
+                    Logged in as
+
+                    <strong>
+                        {{ username }}
+                    </strong>
+
+                    <span class="role-badge">
+                        {{ role }}
+                    </span>
+
                 </span>
+
+
+                <span class="live-indicator">
+
+                    <span class="live-dot"></span>
+
+                    LIVE
+
+                </span>
+
 
                 <span id="lastUpdated">
                     Updating...
                 </span>
 
+
             </div>
+
 
         </header>
 
 
-        <!-- STATISTICS -->
+        <!-- ==================================================
+             DASHBOARD VIEW
+        =================================================== -->
 
-        <section class="stats-grid">
+        <div id="dashboardView">
 
 
-            <div class="stat-card">
+            <!-- ==================================================
+                 MAIN STATISTICS
+            =================================================== -->
 
-                <div class="stat-icon blue">
-                    🚗
+            <section class="stats-grid">
+
+
+                <!-- TOTAL VEHICLE ENTRIES -->
+
+                <div class="stat-card">
+
+                    <div class="stat-icon blue">
+                        🚗
+                    </div>
+
+                    <div>
+
+                        <p>
+                            Total Vehicle Entries
+                        </p>
+
+                        <h2 id="totalVehicles">
+                            0
+                        </h2>
+
+                        <span class="stat-label">
+                            All successful entries
+                        </span>
+
+                    </div>
+
                 </div>
 
-                <div>
 
-                    <p>Registered Vehicles</p>
+                <!-- CURRENTLY PARKED -->
 
-                    <h2 id="totalRegistered">0</h2>
+                <div class="stat-card">
 
-                    <span class="stat-label">
-                        Active RFID vehicles
+                    <div class="stat-icon green">
+                        🅿
+                    </div>
+
+                    <div>
+
+                        <p>
+                            Currently Parked
+                        </p>
+
+                        <h2 id="currentlyParked">
+                            0
+                        </h2>
+
+                        <span class="stat-label">
+                            Vehicles inside
+                        </span>
+
+                    </div>
+
+                </div>
+
+
+                <!-- TODAY'S ENTRIES -->
+
+                <div class="stat-card">
+
+                    <div class="stat-icon orange">
+                        ↓
+                    </div>
+
+                    <div>
+
+                        <p>
+                            Today's Entries
+                        </p>
+
+                        <h2 id="todayIn">
+                            0
+                        </h2>
+
+                        <span class="stat-label">
+                            Vehicles entered today
+                        </span>
+
+                    </div>
+
+                </div>
+
+
+                <!-- REGISTERED VEHICLES -->
+
+                <div class="stat-card">
+
+                    <div class="stat-icon purple">
+                        RFID
+                    </div>
+
+                    <div>
+
+                        <p>
+                            Registered Vehicles
+                        </p>
+
+                        <h2 id="totalRegistered">
+                            0
+                        </h2>
+
+                        <span class="stat-label">
+                            Active RFID vehicles
+                        </span>
+
+                    </div>
+
+                </div>
+
+
+            </section>
+
+
+            <!-- ==================================================
+                 ACCESS STATISTICS
+            =================================================== -->
+
+            <section class="secondary-grid">
+
+
+                <!-- ALLOWED -->
+
+                <div class="mini-card">
+
+                    <div class="mini-icon authorized">
+                        ✓
+                    </div>
+
+                    <div>
+
+                        <span>
+                            Access Allowed
+                        </span>
+
+                        <strong id="authorized">
+                            0
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+                <!-- DENIED -->
+
+                <div class="mini-card">
+
+                    <div class="mini-icon denied">
+                        !
+                    </div>
+
+                    <div>
+
+                        <span>
+                            Access Denied
+                        </span>
+
+                        <strong id="denied">
+                            0
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+                <!-- SYSTEM -->
+
+                <div class="mini-card">
+
+                    <div class="mini-icon system">
+                        ●
+                    </div>
+
+                    <div>
+
+                        <span>
+                            System Status
+                        </span>
+
+                        <strong
+                            class="online-text"
+                            id="systemStatus"
+                        >
+                            Online
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+            </section>
+
+
+            <!-- ==================================================
+                 CURRENT PARKING
+            =================================================== -->
+
+            <section
+                class="dashboard-section"
+                id="parking"
+            >
+
+
+                <div class="section-header">
+
+
+                    <div>
+
+                        <h2>
+                            Currently Parked Vehicles
+                        </h2>
+
+                        <p>
+                            Vehicles currently inside the parking area
+                        </p>
+
+                    </div>
+
+
+                    <span
+                        class="count-badge"
+                        id="parkingCount"
+                    >
+                        0 Vehicles
                     </span>
 
+
                 </div>
 
-            </div>
+
+                <div class="table-container">
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>
+                                    Vehicle
+                                </th>
+
+                                <th>
+                                    Owner
+                                </th>
+
+                                <th>
+                                    RFID UID
+                                </th>
+
+                                <th>
+                                    Entry Time
+                                </th>
+
+                                <th>
+                                    Status
+                                </th>
+
+                            </tr>
+
+                        </thead>
 
 
-            <div class="stat-card">
+                        <tbody id="vehiclesTable">
 
-                <div class="stat-icon green">
-                    🅿
+                        </tbody>
+
+
+                    </table>
+
                 </div>
 
-                <div>
 
-                    <p>Currently Parked</p>
+            </section>
 
-                    <h2 id="currentlyParked">0</h2>
 
-                    <span class="stat-label">
-                        Vehicles inside
+            <!-- ==================================================
+                 RECENT ENTRY ACTIVITY
+            =================================================== -->
+
+            <section
+                class="dashboard-section"
+                id="activity"
+            >
+
+
+                <div class="section-header">
+
+
+                    <div>
+
+                        <h2>
+                            Recent Vehicle Entries
+                        </h2>
+
+                        <p>
+                            Latest successful vehicle entry records
+                        </p>
+
+                    </div>
+
+
+                    <span
+                        class="count-badge"
+                        id="activityCount"
+                    >
+                        0 Records
                     </span>
 
-                </div>
-
-            </div>
-
-
-            <div class="stat-card">
-
-                <div class="stat-icon orange">
-                    ↓
-                </div>
-
-                <div>
-
-                    <p>Today's IN</p>
-
-                    <h2 id="todayIn">0</h2>
-
-                    <span class="stat-label">
-                        Vehicles entered
-                    </span>
 
                 </div>
 
-            </div>
+
+                <div class="table-container">
+
+                    <table>
+
+                        <thead>
+
+                            <tr>
+
+                                <th>
+                                    Vehicle
+                                </th>
+
+                                <th>
+                                    Owner
+                                </th>
+
+                                <th>
+                                    RFID UID
+                                </th>
+
+                                <th>
+                                    Entry Time
+                                </th>
+
+                                <th>
+                                    Status
+                                </th>
+
+                            </tr>
+
+                        </thead>
 
 
-            <div class="stat-card">
+                        <tbody id="recentTable">
 
-                <div class="stat-icon purple">
-                    ↑
-                </div>
-
-                <div>
-
-                    <p>Today's OUT</p>
-
-                    <h2 id="todayOut">0</h2>
-
-                    <span class="stat-label">
-                        Vehicles exited
-                    </span>
-
-                </div>
-
-            </div>
+                        </tbody>
 
 
-        </section>
-
-
-        <!-- SECONDARY STATISTICS -->
-
-        <section class="secondary-grid">
-
-
-            <div class="mini-card">
-
-                <div class="mini-icon authorized">
-                    ✓
-                </div>
-
-                <div>
-
-                    <span>Authorized RFID</span>
-
-                    <strong id="authorized">0</strong>
+                    </table>
 
                 </div>
 
-            </div>
+
+            </section>
 
 
-            <div class="mini-card">
-
-                <div class="mini-icon denied">
-                    !
-                </div>
-
-                <div>
-
-                    <span>Denied RFID</span>
-
-                    <strong id="denied">0</strong>
-
-                </div>
-
-            </div>
+        </div>
 
 
-            <div class="mini-card">
+        <!-- ==================================================
+             RFID ACCESS
+        =================================================== -->
 
-                <div class="mini-icon system">
-                    ●
-                </div>
+        <section
+            class="dashboard-section hidden-view"
+            id="access"
+        >
 
-                <div>
-
-                    <span>System Status</span>
-
-                    <strong class="online-text">
-                        Online
-                    </strong>
-
-                </div>
-
-            </div>
-
-
-        </section>
-
-
-        <!-- CURRENT PARKING -->
-
-        <section class="dashboard-section" id="parking">
 
             <div class="section-header">
 
+
                 <div>
 
-                    <h2>Currently Parked Vehicles</h2>
+                    <h2>
+                        RFID Access Activity
+                    </h2>
 
                     <p>
-                        Vehicles currently inside the parking area
+                        All authorized and denied RFID access attempts
                     </p>
 
                 </div>
 
-                <span class="count-badge" id="parkingCount">
-                    0 Vehicles
+
+                <span
+                    class="count-badge"
+                    id="accessCount"
+                >
+                    0 Records
                 </span>
 
+
             </div>
 
 
@@ -293,47 +693,70 @@
 
                         <tr>
 
-                            <th>Vehicle</th>
+                            <th>
+                                RFID UID
+                            </th>
 
-                            <th>Owner</th>
+                            <th>
+                                Result
+                            </th>
 
-                            <th>RFID UID</th>
-
-                            <th>Entry Time</th>
-
-                            <th>Status</th>
+                            <th>
+                                Timestamp
+                            </th>
 
                         </tr>
 
                     </thead>
 
-                    <tbody id="vehiclesTable">
+
+                    <tbody id="accessTable">
 
                     </tbody>
+
 
                 </table>
 
             </div>
 
+
         </section>
 
 
-        <!-- RECENT ACTIVITY -->
+        <!-- ==================================================
+             LOGIN ACTIVITY
+        =================================================== -->
 
-        <section class="dashboard-section" id="activity">
+        <section
+            class="dashboard-section hidden-view"
+            id="login-activity"
+        >
+
 
             <div class="section-header">
 
+
                 <div>
 
-                    <h2>Recent Parking Activity</h2>
+                    <h2>
+                        Login Activity
+                    </h2>
 
                     <p>
-                        Latest vehicle entry and exit records
+                        Dashboard user login activity
                     </p>
 
                 </div>
 
+
+                <span
+                    class="count-badge"
+                    id="loginActivityCount"
+                >
+                    0 Records
+                </span>
+
+
             </div>
 
 
@@ -345,52 +768,59 @@
 
                         <tr>
 
-                            <th>Vehicle</th>
+                            <th>
+                                Username
+                            </th>
 
-                            <th>Owner</th>
+                            <th>
+                                Login Time
+                            </th>
 
-                            <th>RFID UID</th>
+                            <th>
+                                Last Activity
+                            </th>
 
-                            <th>Entry</th>
+                            <th>
+                                Logout Time
+                            </th>
 
-                            <th>Exit</th>
+                            <th>
+                                IP Address
+                            </th>
 
-                            <th>Status</th>
+                            <th>
+                                Status
+                            </th>
 
                         </tr>
 
                     </thead>
 
-                    <tbody id="recentTable">
+
+                    <tbody id="loginActivityTable">
 
                     </tbody>
+
 
                 </table>
 
             </div>
 
+
         </section>
-
-
-        <!-- FOOTER -->
-
-        <footer>
-
-            <span>
-                Smart Parking Management System
-            </span>
-
-            <span>
-                ESP32 • RFID • MySQL • Flask
-            </span>
-
-        </footer>
 
 
     </main>
 
 
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <!-- ======================================================
+         JAVASCRIPT
+    ======================================================= -->
+
+    <script
+        src="{{ url_for('static', filename='app.js') }}"
+    ></script>
+
 
 </body>
 
