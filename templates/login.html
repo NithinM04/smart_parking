@@ -10,7 +10,7 @@
         content="width=device-width, initial-scale=1.0"
     >
 
-    <title>Login - Smart Parking System</title>
+    <title>GUPIO Parking - Login</title>
 
     <link
         rel="stylesheet"
@@ -20,114 +20,123 @@
 </head>
 
 
-<body class="login-page">
+<body class="login-body">
 
 
-    <div class="login-card">
+    <main class="login-page">
 
 
-        <div class="login-logo">
+        <section class="login-card">
 
-            <div class="logo-icon">
-                P
+
+            <!-- GUPIO LOGO -->
+
+            <div class="login-logo-container">
+
+                <img
+                    src="{{ url_for('static', filename='images/GUPIO Gear Logo with Tagline.png') }}"
+                    alt="GUPIO"
+                    class="gupio-logo"
+                >
+
             </div>
 
-            <div>
+
+            <!-- HEADING -->
+
+            <div class="login-heading">
 
                 <h1>
-                    Smart Parking
+                    Welcome to Gupio Parking
                 </h1>
 
-                <span>
-                    Management System
-                </span>
+                <p>
+                    Sign in to monitor the parking system.
+                </p>
 
             </div>
 
-        </div>
+
+            <!-- ERROR -->
+
+            {% if error %}
+
+            <div class="login-error">
+                {{ error }}
+            </div>
+
+            {% endif %}
 
 
-        <div class="login-heading">
+            <!-- LOGIN FORM -->
 
-            <h2>
-                Welcome Back
-            </h2>
-
-            <p>
-                Sign in to monitor the parking system.
-            </p>
-
-        </div>
-
-
-        {% if error %}
-
-        <div class="login-error">
-
-            {{ error }}
-
-        </div>
-
-        {% endif %}
-
-
-        <form
-            method="POST"
-            action="{{ url_for('login') }}"
-            autocomplete="off"
-        >
-
-
-            <label for="username">
-                Username
-            </label>
-
-
-            <input
-                id="username"
-                name="username"
-                type="text"
-                placeholder="Enter username"
-                required
-                autofocus
+            <form
+                method="POST"
+                action="{{ url_for('login') }}"
+                class="login-form"
             >
 
 
-            <label for="password">
-                Password
-            </label>
+                <div class="login-field">
+
+                    <label for="username">
+                        Username
+                    </label>
+
+                    <input
+                        type="text"
+                        id="username"
+                        name="username"
+                        placeholder="Enter username"
+                        autocomplete="username"
+                        required
+                    >
+
+                </div>
 
 
-            <input
-                id="password"
-                name="password"
-                type="password"
-                placeholder="Enter password"
-                required
-            >
+                <div class="login-field">
+
+                    <label for="password">
+                        Password
+                    </label>
+
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        placeholder="Enter password"
+                        autocomplete="current-password"
+                        required
+                    >
+
+                </div>
 
 
-            <button
-                type="submit"
-                class="login-button"
-            >
-                Login
-            </button>
+                <button
+                    type="submit"
+                    class="login-button"
+                >
+                    Login
+                </button>
 
 
-        </form>
+            </form>
 
 
-        <div class="login-footer">
+            <!-- FOOTER -->
 
-            <span>
+            <div class="login-footer">
+
                 ESP32 • RFID • MySQL • Flask
-            </span>
 
-        </div>
+            </div>
 
 
-    </div>
+        </section>
+
+
+    </main>
 
 
 </body>

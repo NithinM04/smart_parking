@@ -883,43 +883,34 @@ def logout():
 
 
 @app.route("/")
-
-@login_required
-
-def dashboard():
-
-
+def landing_page():
 
     return render_template(
+        "index.html"
+    )
 
+
+@app.route("/dashboard")
+@login_required
+def dashboard():
+
+    return render_template(
         "index.html",
-
         username=session.get(
-
             "username",
-
             ""
-
         ),
 
         full_name=session.get(
-
             "full_name",
-
             ""
-
         ),
 
         role=session.get(
-
             "role",
-
             ""
-
         )
-
     )
-
 
 
 
