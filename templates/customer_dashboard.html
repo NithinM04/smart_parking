@@ -1,0 +1,243 @@
+{% extends 'customer_base.html' %}
+{% block title %}My parking · GUPIO{% endblock %}
+{% block content %}
+<section class="welcome">
+  <div>
+    <div class="eyebrow">CLIENT DASHBOARD</div>
+    <h1>Hello, {{ session.get('customer_name', 'there') }}</h1>
+    <p class="muted">View your vehicles, parking sessions and payments.</p>
+  </div>
+  <div class="price-chip"><small>VEHICLE REGISTRATION FEE</small><strong>₹{{ parking_fixed_fee }}</strong><small>one-time per vehicle</small></div>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <div><div class="eyebrow">YOUR PARKING</div><h2>Active sessions</h2></div>
+    <span class="pill">{{ active_sessions|length }} active</span>
+  </div>
+  {% if active_sessions %}
+    <div class="session-list">
+      {% for item in active_sessions %}
+      <article class="session-card">
+        <div>
+          <span class="status-dot"></span>
+          <b>{{ item.vehicle_number or 'Vehicle registration unavailable' }}</b>
+          <p class="muted">Session #{{ item.id }} · Entry {{ item.entry_time }}</p>
+        </div>
+        <div class="session-action">
+          {% if item.payment_status == 'CAPTURED' %}
+            <span class="paid-note">Parking session payment captured</span>
+          {% else %}
+            <span class="muted">Parking session is active.</span>
+          {% endif %}
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty"><div class="empty-icon">⌁</div><b>No active parking sessions</b><p class="muted">Your registered vehicle's active parking session will appear here.</p></div>
+  {% endif %}
+</section>
+
+<div class="two-col">
+  <section class="panel">
+    <div class="panel-head"><div><div class="eyebrow">VEHICLE MANAGEMENT</div><h2>My vehicles</h2></div></div>
+    <form method="post" action="{{ url_for('customer.add_customer_vehicle') }}" class="vehicle-form">
+      <input type="hidden" name="csrf_token" value="{{ customer_csrf_token() }}">
+      <label>Registration number<input name="vehicle_number" placeholder="KA01AB1234" minlength="6" maxlength="20" required></label>
+      <label>Nickname <span class="muted">(optional)</span><input name="nickname" placeholder="My car"></label>
+      <button class="primary" type="submit">Add vehicle</button>
+    </form>
+    {% if vehicles %}
+      <div class="vehicle-list">
+        {% for vehicle in vehicles %}
+        <div class="vehicle-row">
+          <span class="vehicle-icon">▣</span>
+          <div class="vehicle-info"><b>{{ vehicle.vehicle_number }}</b><small>{{ vehicle.nickname or 'Registered vehicle' }}</small></div>
+          <form method="post" action="{{ url_for('customer.remove_customer_vehicle', vehicle_id=vehicle.id) }}"
+                onsubmit="return confirm('Remove this vehicle from your account? Its payment history will be retained.');">
+            <input type="hidden" name="csrf_token" value="{{ customer_csrf_token() }}">
+            <button class="remove-vehicle-button" type="submit">Remove</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="muted small-gap">No vehicles registered yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="panel payment-panel">
+    <div class="panel-head"><div><div class="eyebrow">SECURE ONLINE PAYMENT</div><h2>Vehicle registration payments</h2></div><span class="pill">RAZORPAY</span></div>
+    {% if vehicles %}
+      <div class="vehicle-payment-list">
+        {% for vehicle in vehicles %}
+        <article class="vehicle-payment-card vehicle-payment-row">
+          <div class="vehicle-payment-details">
+            <b>{{ vehicle.vehicle_number }}</b>
+            <small class="muted">{{ vehicle.nickname or 'Vehicle registration fee' }}</small>
+          </div>
+          {% if vehicle.registration_payment_status == 'CAPTURED' %}
+            <span class="vehicle-paid">✓ PAID</span>
+          {% else %}
+            <button class="primary vehicle-pay-button" type="button" data-vehicle-id="{{ vehicle.id }}">Pay ₹{{ parking_fixed_fee }}</button>
+            <small class="vehicle-pay-status" role="status" aria-live="polite">Registration fee pending</small>
+          {% endif %}
+        </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty qr-empty">
+        <div class="empty-icon">₹</div>
+        <b>No registered vehicles yet</b>
+        <p class="muted">Add a vehicle in My Vehicles to see its ₹{{ parking_fixed_fee }} registration payment here.</p>
+      </div>
+    {% endif %}
+    <div class="transactions-divider"></div>
+    <div class="panel-head transactions-heading"><div><div class="eyebrow">RECENT TRANSACTIONS</div><h2>Payment history</h2></div><a class="text-link" href="{{ url_for('customer.payment_history') }}">View all →</a></div>
+    {% if payments %}
+      <div class="payment-list">
+      {% for payment in payments %}
+        <div class="payment-row"><div><b>{{ payment.payment_type }} · {{ payment.vehicle_number or ('Session #' ~ payment.parking_session_id) }}</b><small>{{ payment.created_at }}{% if payment.receipt_number %} · Receipt {{ payment.receipt_number }}{% endif %}</small></div><div class="right"><b>₹{{ '%.2f'|format(payment.amount_paise / 100) }}</b><small class="state {{ payment.status|lower }}">{{ payment.status }}</small></div></div>
+      {% endfor %}
+      </div>
+    {% else %}<p class="muted small-gap">No payments yet.</p>{% endif %}
+  </section>
+</div>
+<div id="payment-message" class="payment-message" role="status" aria-live="polite"></div>
+{% endblock %}
+
+{% block head %}
+<style>
+.payment-panel{min-width:0}
+.vehicle-payment-list{display:flex;flex-direction:column;gap:12px;margin-top:16px}
+.vehicle-payment-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.vehicle-info{flex:1;min-width:120px}
+.vehicle-payment-card{border:1px solid rgba(255,196,0,.22);border-radius:12px;padding:14px;background:rgba(255,196,0,.025)}
+.vehicle-payment-details{flex:1;min-width:140px;display:flex;flex-direction:column;gap:5px}
+.vehicle-payment-details small{font-size:12px}
+.vehicle-pay-button{padding:10px 18px;white-space:nowrap;cursor:pointer}
+.vehicle-pay-button:disabled{opacity:.6;cursor:wait}
+.remove-vehicle-button{background:transparent;border:1px solid #a33;color:#ff7777;border-radius:8px;padding:7px 11px;cursor:pointer}.remove-vehicle-button:hover{background:rgba(255,70,70,.1)}
+.vehicle-pay-status{flex-basis:100%;margin-left:0;font-size:12px}
+.vehicle-pay-status.success,.vehicle-paid{color:#22c55e;font-weight:800}
+.vehicle-pay-status.failed{color:#f87171;font-weight:700}
+.vehicle-pay-status.pending{color:#fbbf24}
+.vehicle-paid-button{background:#166534!important;color:#fff!important}
+
+.checkout-card{border:1px solid rgba(255,196,0,.25);border-radius:14px;padding:16px;margin-top:12px;background:rgba(255,196,0,.025)}
+.checkout-session-meta{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
+.checkout-session-meta small{display:block;margin-top:5px}
+.checkout-amount{font-size:25px;font-weight:800;color:#ffc400;white-space:nowrap}
+.pay-button{width:100%;min-height:46px;font-weight:800;cursor:pointer}
+.pay-button:disabled{opacity:.6;cursor:wait}
+.checkout-status{min-height:18px;text-align:center;font-size:13px;color:#aaa;margin:12px 0 0}
+.checkout-status.success{color:#22c55e;font-weight:700}
+.checkout-status.failed{color:#f87171;font-weight:700}
+.checkout-status.pending{color:#fbbf24}
+.checkout-status a{display:inline-block;margin-left:6px}
+.qr-empty{padding:24px 8px}
+.transactions-divider{height:1px;background:rgba(255,255,255,.1);margin:22px 0}
+.transactions-heading{margin-bottom:10px}
+.payment-message{margin-top:12px}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+const createVehicleOrderUrl = {{ url_for("customer.create_vehicle_registration_order")|tojson }};
+const verifyVehiclePaymentUrl = {{ url_for("customer.verify_vehicle_registration_payment")|tojson }};
+
+document.querySelectorAll('.vehicle-pay-button').forEach(button => {
+  button.addEventListener('click', async () => {
+    const vehicleId = Number(button.dataset.vehicleId);
+    const row = button.closest('.vehicle-payment-row');
+    const status = row.querySelector('.vehicle-pay-status');
+    button.disabled = true;
+    status.className = 'vehicle-pay-status pending';
+    status.textContent = 'Preparing secure checkout…';
+
+    try {
+      const orderResponse = await fetch(createVehicleOrderUrl, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken},
+        body: JSON.stringify({vehicle_id: vehicleId})
+      });
+      const order = await orderResponse.json();
+      if (!orderResponse.ok || order.status !== 'success') {
+        if (order.status === 'paid') {
+          status.className = 'vehicle-pay-status success';
+          status.textContent = '✓ PAID';
+          button.remove();
+          return;
+        }
+        throw new Error(order.message || 'Unable to start payment.');
+      }
+
+      const checkout = new Razorpay({
+        key: order.key_id,
+        amount: order.amount,
+        currency: order.currency,
+        name: order.name,
+        description: order.description,
+        order_id: order.order_id,
+        prefill: order.prefill || {},
+        theme: {color: '#ffc400'},
+        handler: async function (paymentResponse) {
+          status.className = 'vehicle-pay-status pending';
+          status.textContent = 'Verifying payment securely…';
+          try {
+            const verifyResponse = await fetch(verifyVehiclePaymentUrl, {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken},
+              body: JSON.stringify(paymentResponse)
+            });
+            const result = await verifyResponse.json();
+            if (verifyResponse.ok && result.status === 'success') {
+              status.className = 'vehicle-pay-status success';
+              status.textContent = '✓ PAID';
+              button.textContent = 'Paid';
+              button.disabled = true;
+              button.classList.add('vehicle-paid-button');
+            } else if (verifyResponse.status === 202 || result.status === 'pending') {
+              status.className = 'vehicle-pay-status pending';
+              status.textContent = result.message || 'Payment is processing. Check again shortly.';
+              button.disabled = false;
+            } else {
+              status.className = 'vehicle-pay-status failed';
+              status.textContent = result.message || '✕ PAYMENT FAILED';
+              button.disabled = false;
+            }
+          } catch (error) {
+            status.className = 'vehicle-pay-status failed';
+            status.textContent = 'Payment submitted, but verification is pending. Check before retrying.';
+            button.disabled = false;
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            status.className = 'vehicle-pay-status';
+            status.textContent = 'Checkout closed. You can try again.';
+            button.disabled = false;
+          }
+        }
+      });
+      checkout.on('payment.failed', function (failure) {
+        const reason = failure && failure.error && failure.error.description
+          ? failure.error.description : 'Please try again.';
+        status.className = 'vehicle-pay-status failed';
+        status.textContent = '✕ PAYMENT FAILED — ' + reason;
+        button.disabled = false;
+      });
+      checkout.open();
+    } catch (error) {
+      status.className = 'vehicle-pay-status failed';
+      status.textContent = error.message || 'Unable to start payment.';
+      button.disabled = false;
+    }
+  });
+});
+</script>
+{% endblock %}

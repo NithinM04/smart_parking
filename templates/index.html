@@ -80,6 +80,14 @@
             LOGIN ACTIVITY
         </a>
 
+        <a href="#customer-vehicles" class="nav-item" data-section="customer-vehicles">
+            CUSTOMER VEHICLES
+        </a>
+
+        <a href="#admin-payments" class="nav-item" data-section="admin-payments">
+            PAYMENT HISTORY
+        </a>
+
     </nav>
 
 
@@ -475,13 +483,16 @@
         </section>
 
 
+    </div>
+
+
         <!-- =================================================
              RFID ACCESS
         ================================================== -->
 
         <section
             id="access"
-            class="dashboard-section"
+            class="dashboard-section hidden-view"
         >
 
             <div class="section-heading">
@@ -641,7 +652,7 @@
 
         <section
             id="login-activity"
-            class="dashboard-section"
+            class="dashboard-section hidden-view"
         >
 
             <div class="section-heading">
@@ -732,6 +743,37 @@
         </section>
 
     </div>
+
+
+        <section id="customer-vehicles" class="dashboard-section hidden-view">
+            <div class="section-heading">
+                <div><span class="section-kicker">CUSTOMER MANAGEMENT</span>
+                <h2>Customer vehicle registrations</h2>
+                <p>Which customer registered each vehicle and its registration-fee payment status.</p></div>
+                <span class="count-badge" id="customerVehicleCount">0 Vehicles</span>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>CUSTOMER</th><th>EMAIL</th><th>VEHICLE</th><th>NICKNAME</th><th>ADDED ON</th><th>PAYMENT</th><th>RECORD</th></tr></thead>
+                    <tbody id="customerVehiclesTable"><tr><td colspan="7" class="empty-row">Loading customer vehicles...</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="admin-payments" class="dashboard-section hidden-view">
+            <div class="section-heading">
+                <div><span class="section-kicker">TRANSACTIONS</span>
+                <h2>All payment history</h2>
+                <p>Vehicle-registration fees and parking-session payments across customer accounts.</p></div>
+                <span class="count-badge" id="adminPaymentsCount">0 Payments</span>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>CUSTOMER</th><th>EMAIL</th><th>PAYMENT TYPE</th><th>VEHICLE</th><th>AMOUNT</th><th>STATUS</th><th>PAYMENT ID</th><th>DATE</th><th>RECEIPT</th></tr></thead>
+                    <tbody id="adminPaymentsTable"><tr><td colspan="9" class="empty-row">Loading payments...</td></tr></tbody>
+                </table>
+            </div>
+        </section>
 
 
     <!-- =====================================================

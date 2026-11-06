@@ -1,0 +1,8 @@
+{% extends 'customer_base.html' %}{% block title %}Create account · GUPIO{% endblock %}
+{% block content %}<section class="auth-card"><div class="eyebrow">CUSTOMER PORTAL</div><h1>Create your account</h1><p class="muted">Register to view your parking sessions and pay securely online.</p>
+<form method="post" class="form-grid"><input type="hidden" name="csrf_token" value="{{ customer_csrf_token() }}">
+<label>Full name<input name="full_name" maxlength="100" autocomplete="name" required></label>
+<label>Email address<input type="email" name="email" maxlength="150" autocomplete="email" required></label>
+<label>Mobile number <span class="muted">(optional)</span><input name="phone" maxlength="20" autocomplete="tel"></label>
+<label>Password<input type="password" name="password" minlength="8" autocomplete="new-password" required><small>At least 8 characters.</small></label>
+<button class="primary full" type="submit">Create customer account</button></form><p class="switch">Already registered? <a href="{{ url_for('customer.customer_login') }}">Sign in</a></p></section>{% endblock %}

@@ -1335,6 +1335,63 @@ function updateSystemStatus(online) {
 
 
 // ============================================================
+
+// CUSTOMER VEHICLE REGISTRATIONS
+async function loadCustomerVehicles() {
+    const table = document.getElementById("customerVehiclesTable");
+    const count = document.getElementById("customerVehicleCount");
+    if (!table) return;
+    try {
+        const response = await fetch("/api/customer-vehicles");
+        if (response.status === 401) { window.location.href = "/login"; return; }
+        if (!response.ok) throw new Error("Could not load customer vehicles");
+        const rows = await response.json();
+        count.textContent = `${rows.length} Vehicle${rows.length === 1 ? "" : "s"}`;
+        table.innerHTML = rows.length ? rows.map(row => `
+          <tr>
+            <td>${escapeHTML(row.full_name || "-")}</td>
+            <td>${escapeHTML(row.email || "-")}</td>
+            <td><strong>${escapeHTML(row.vehicle_number || "-")}</strong></td>
+            <td>${escapeHTML(row.nickname || "-")}</td>
+            <td>${formatDate(row.created_at)}</td>
+            <td><span class="status-badge ${row.payment_status === "CAPTURED" ? "status-parked" : "status-exited"}">${escapeHTML(row.payment_status || "PENDING")}</span></td>
+            <td>${Number(row.is_active) === 1 ? "ACTIVE" : "REMOVED"}</td>
+          </tr>`).join("") : '<tr><td colspan="7" class="empty-row">No customer vehicles registered yet.</td></tr>';
+    } catch (error) {
+        console.error("Customer vehicle list error:", error);
+        table.innerHTML = '<tr><td colspan="7" class="empty-row">Unable to load customer vehicles.</td></tr>';
+    }
+}
+
+// ALL CUSTOMER PAYMENTS
+async function loadAdminPayments() {
+    const table = document.getElementById("adminPaymentsTable");
+    const count = document.getElementById("adminPaymentsCount");
+    if (!table) return;
+    try {
+        const response = await fetch("/api/admin-payments");
+        if (response.status === 401) { window.location.href = "/login"; return; }
+        if (!response.ok) throw new Error("Could not load payment history");
+        const rows = await response.json();
+        count.textContent = `${rows.length} Payment${rows.length === 1 ? "" : "s"}`;
+        table.innerHTML = rows.length ? rows.map(row => `
+          <tr>
+            <td>${escapeHTML(row.customer_name || "-")}</td>
+            <td>${escapeHTML(row.email || "-")}</td>
+            <td>${escapeHTML(row.payment_type || "-")}</td>
+            <td>${escapeHTML(row.vehicle_number || "-")}</td>
+            <td>₹${(Number(row.amount_paise || 0) / 100).toFixed(2)}</td>
+            <td><span class="status-badge ${row.status === "CAPTURED" ? "status-parked" : "status-exited"}">${escapeHTML(row.status || "-")}</span></td>
+            <td>${escapeHTML(row.razorpay_payment_id || "-")}</td>
+            <td>${formatDate(row.created_at)}</td>
+            <td>${escapeHTML(row.receipt_number || "-")}</td>
+          </tr>`).join("") : '<tr><td colspan="9" class="empty-row">No payments recorded yet.</td></tr>';
+    } catch (error) {
+        console.error("Admin payment history error:", error);
+        table.innerHTML = '<tr><td colspan="9" class="empty-row">Unable to load payment history.</td></tr>';
+    }
+}
+
 // NAVIGATION
 // ============================================================
 
@@ -1359,9 +1416,10 @@ function setupNavigation() {
 
 
     const loginActivityView =
-        document.getElementById(
-            "login-activity"
-        );
+        document.getElementById("login-activity");
+
+    const customerVehiclesView = document.getElementById("customer-vehicles");
+    const adminPaymentsView = document.getElementById("admin-payments");
 
 
     const pageTitle =
@@ -1391,13 +1449,9 @@ function setupNavigation() {
         }
 
 
-        if (loginActivityView) {
-
-            loginActivityView.classList.add(
-                "hidden-view"
-            );
-
-        }
+        if (loginActivityView) loginActivityView.classList.add("hidden-view");
+        if (customerVehiclesView) customerVehiclesView.classList.add("hidden-view");
+        if (adminPaymentsView) adminPaymentsView.classList.add("hidden-view");
 
 
         // ------------------------------------------------------
@@ -1621,6 +1675,20 @@ function setupNavigation() {
 
 
             loadLoginActivity();
+
+        } else if (section === "customer-vehicles") {
+            if (dashboardView) dashboardView.classList.add("hidden-view");
+            if (customerVehiclesView) customerVehiclesView.classList.remove("hidden-view");
+            if (pageTitle) pageTitle.textContent = "Customer Vehicles";
+            if (pageSubtitle) pageSubtitle.textContent = "Registered customer vehicles and payment status";
+            loadCustomerVehicles();
+
+        } else if (section === "admin-payments") {
+            if (dashboardView) dashboardView.classList.add("hidden-view");
+            if (adminPaymentsView) adminPaymentsView.classList.remove("hidden-view");
+            if (pageTitle) pageTitle.textContent = "Payment History";
+            if (pageSubtitle) pageSubtitle.textContent = "Vehicle registration and parking payments";
+            loadAdminPayments();
 
         }
 

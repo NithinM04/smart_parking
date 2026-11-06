@@ -1,0 +1,6 @@
+{% extends 'customer_base.html' %}{% block title %}Customer login · GUPIO{% endblock %}
+{% block content %}<section class="auth-card"><div class="eyebrow">GUPIO CUSTOMER PORTAL</div><h1>Welcome back</h1><p class="muted">Sign in to view your vehicles, parking and receipts.</p>
+<form method="post" class="form-grid"><input type="hidden" name="csrf_token" value="{{ customer_csrf_token() }}">
+<label>Email address<input type="email" name="email" autocomplete="email" required></label>
+<label>Password<input type="password" name="password" autocomplete="current-password" required></label>
+<button class="primary full" type="submit">Sign in</button></form><p class="switch">New to GUPIO? <a href="{{ url_for('customer.customer_register') }}">Create an account</a></p></section>{% endblock %}
