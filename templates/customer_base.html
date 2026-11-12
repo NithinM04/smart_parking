@@ -9,7 +9,12 @@
 </head>
 <body>
 <header class="topbar">
-  <a class="brand" href="{{ url_for('customer.customer_dashboard') if session.get('customer_id') else url_for('customer.customer_login') }}"><span class="brand-mark">G</span><span>GUPIO <small>SMART PARKING</small></span></a>
+  <a class="brand" href="{{ url_for('customer.customer_dashboard') if session.get('customer_id') else url_for('customer.customer_login') }}">
+    <img
+        src="{{ url_for('static', filename='images/GUPIO Gear Logo with Tagline.png') }}"
+        alt="GUPIO - Engineered For You"
+        class="brand-logo">
+</a>
   {% if session.get('customer_id') %}
   <nav><a href="{{ url_for('customer.customer_dashboard') }}">Dashboard</a><a href="{{ url_for('customer.payment_history') }}">Payments</a></nav>
   <div class="userbox"><span>{{ session.get('customer_name', 'Customer') }}</span><form method="post" action="{{ url_for('customer.customer_logout') }}"><input type="hidden" name="csrf_token" value="{{ customer_csrf_token() }}"><button class="link-button">Sign out</button></form></div>

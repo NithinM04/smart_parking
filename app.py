@@ -379,10 +379,14 @@ def admin_required(route_function):
 def login():
     """Single GUPIO login for Admin and Customer accounts."""
 
-    if session.get("customer_id"):
-        return redirect(url_for("customer.customer_dashboard"))
-    if session.get("authenticated"):
-        return redirect(url_for("dashboard"))
+    
+    if request.method == "GET":
+        if session.get("customer_id"):
+            return redirect(url_for("customer.customer_dashboard"))
+
+        if session.get("authenticated"):
+            return redirect(url_for("dashboard"))
+
 
     error = None
     selected_role = request.form.get("account_type", "admin").strip().lower()
