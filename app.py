@@ -2,7 +2,8 @@ from functools import wraps
 
 from flask import Flask, jsonify, render_template, request, redirect, url_for, session
 
-import mysql.connector
+import psycopg
+from psycopg.rows import dict_row
 
 import os
 
@@ -56,48 +57,37 @@ app.config.update(
 
 # ============================================================
 
-# MySQL Configuration
+# PostgreSQL / Neon Configuration
 
 # ============================================================
 
 
 
-DB_CONFIG = {
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 
-    "host": os.getenv("DB_HOST"),
-
-    "port": int(os.getenv("DB_PORT", "3306")),
-
-    "user": os.getenv("DB_USER"),
-
-    "password": os.getenv("DB_PASSWORD"),
-
-    "database": os.getenv("DB_NAME")
-
-}
-
-
-
+if not DATABASE_URL:
+    raise RuntimeError(
+        "DATABASE_URL is missing. Add your Neon PostgreSQL connection string "
+        "to the local .env file or deployment environment."
+    )
 
 
 # ============================================================
-
 # Database Connection
-
 # ============================================================
-
-
 
 
 def get_db_connection():
-    return mysql.connector.connect(
-        **DB_CONFIG,
-        ssl_disabled=False
+    """Open a PostgreSQL connection to Neon using dictionary-like rows."""
+    return psycopg.connect(
+        DATABASE_URL,
+        sslmode="require",
+        row_factory=dict_row,
+        connect_timeout=10,
     )
 
 
 # Register the customer portal and Razorpay routes.
-# The portal reuses this app's existing MySQL connection function.
 register_customer_portal(app, get_db_connection)
 
 
@@ -105,9 +95,13 @@ register_customer_portal(app, get_db_connection)
 
 
 
+
+
+
+
 # ============================================================
 
-# Convert MySQL datetime values to JSON-safe strings
+# Convert PostgreSQL datetime values to JSON-safe strings
 
 # ============================================================
 
@@ -225,7 +219,7 @@ def update_login_activity():
 
 
 
-    except mysql.connector.Error as e:
+    except psycopg.Error as e:
 
 
 
@@ -243,7 +237,7 @@ def update_login_activity():
 
 
 
-        if conn and conn.is_connected():
+        if conn and not conn.closed:
 
             conn.close()
 
@@ -405,7 +399,7 @@ def login():
             cursor = None
             try:
                 conn = get_db_connection()
-                cursor = conn.cursor(dictionary=True)
+                cursor = conn.cursor(row_factory=dict_row)
 
                 if selected_role == "customer":
                     cursor.execute(
@@ -448,7 +442,8 @@ def login():
                                (user_id, username, login_time, last_activity,
                                 ip_address, user_agent, status)
                                VALUES (%s, %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
-                                       %s, %s, 'ACTIVE')""",
+                                       %s, %s, 'ACTIVE')
+                               RETURNING id""",
                             (
                                 user["id"],
                                 user["username"],
@@ -456,7 +451,7 @@ def login():
                                 request.headers.get("User-Agent", "")[:500],
                             ),
                         )
-                        login_history_id = cursor.lastrowid
+                        login_history_id = cursor.fetchone()["id"]
                         conn.commit()
 
                         session.clear()
@@ -484,15 +479,15 @@ def login():
                     )
                     conn.commit()
 
-            except mysql.connector.Error as e:
+            except psycopg.Error as e:
                 if conn:
                     conn.rollback()
-                print("[MYSQL LOGIN ERROR]", e)
+                print("[POSTGRESQL LOGIN ERROR]", e)
                 error = "Unable to connect to the authentication database."
             finally:
                 if cursor:
                     cursor.close()
-                if conn and conn.is_connected():
+                if conn and not conn.closed:
                     conn.close()
 
     return render_template(
@@ -577,7 +572,7 @@ def logout():
 
 
 
-    except mysql.connector.Error as e:
+    except psycopg.Error as e:
 
 
 
@@ -601,7 +596,7 @@ def logout():
 
 
 
-        if conn and conn.is_connected():
+        if conn and not conn.closed:
 
             conn.close()
 
@@ -677,12 +672,12 @@ def stats():
     cursor = None
     try:
         conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor(row_factory=dict_row)
         cursor.execute("SELECT COUNT(*) AS total_entries FROM parking_sessions")
         total_entries = cursor.fetchone()["total_entries"]
         cursor.execute("SELECT COUNT(*) AS currently_parked FROM parking_sessions WHERE status = 'PARKED'")
         currently_parked = cursor.fetchone()["currently_parked"]
-        cursor.execute("SELECT COUNT(*) AS today_entries FROM parking_sessions WHERE DATE(entry_time) = CURDATE()")
+        cursor.execute("SELECT COUNT(*) AS today_entries FROM parking_sessions WHERE entry_time::date = CURRENT_DATE")
         today_entries = cursor.fetchone()["today_entries"]
         cursor.execute("SELECT COUNT(*) AS allowed FROM access_logs WHERE result = 'ALLOWED'")
         allowed = cursor.fetchone()["allowed"]
@@ -691,12 +686,12 @@ def stats():
         cursor.execute("SELECT COUNT(*) AS total_registered FROM rfid_users WHERE status = 'ACTIVE'")
         total_registered = cursor.fetchone()["total_registered"]
         return jsonify({"total_entries": total_entries, "currently_parked": currently_parked, "today_entries": today_entries, "allowed": allowed, "denied": denied, "total_registered": total_registered})
-    except mysql.connector.Error as e:
-        print("[MYSQL ERROR]", e)
+    except psycopg.Error as e:
+        print("[POSTGRESQL ERROR]", e)
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         if cursor: cursor.close()
-        if conn and conn.is_connected(): conn.close()
+        if conn and not conn.closed: conn.close()
 
 
 @app.route("/api/vehicles")
@@ -706,16 +701,16 @@ def vehicles():
     cursor = None
     try:
         conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor(row_factory=dict_row)
         cursor.execute("""SELECT id, rfid_uid, vehicle_number, owner_name, entry_time, status FROM parking_sessions ORDER BY entry_time DESC, id DESC""")
         vehicles = convert_datetime_rows(cursor.fetchall())
         return jsonify(vehicles)
-    except mysql.connector.Error as e:
-        print("[MYSQL ERROR]", e)
+    except psycopg.Error as e:
+        print("[POSTGRESQL ERROR]", e)
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         if cursor: cursor.close()
-        if conn and conn.is_connected(): conn.close()
+        if conn and not conn.closed: conn.close()
 
 
 @app.route("/api/recent")
@@ -725,16 +720,16 @@ def recent():
     cursor = None
     try:
         conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor(row_factory=dict_row)
         cursor.execute("""SELECT id, rfid_uid, vehicle_number, owner_name, entry_time, status FROM parking_sessions ORDER BY id DESC LIMIT 50""")
         recent_activity = convert_datetime_rows(cursor.fetchall())
         return jsonify(recent_activity)
-    except mysql.connector.Error as e:
-        print("[MYSQL ERROR]", e)
+    except psycopg.Error as e:
+        print("[POSTGRESQL ERROR]", e)
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         if cursor: cursor.close()
-        if conn and conn.is_connected(): conn.close()
+        if conn and not conn.closed: conn.close()
 
 
 
@@ -745,7 +740,7 @@ def admin_customer_vehicles():
     conn = cursor = None
     try:
         conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor(row_factory=dict_row)
         cursor.execute(
             """SELECT cv.id, cv.customer_id, c.full_name, c.email,
                       cv.vehicle_number, cv.nickname, cv.created_at, cv.is_active,
@@ -759,12 +754,12 @@ def admin_customer_vehicles():
                ORDER BY cv.created_at DESC, cv.id DESC"""
         )
         return jsonify(convert_datetime_rows(cursor.fetchall()))
-    except mysql.connector.Error as e:
+    except psycopg.Error as e:
         app.logger.exception("Admin customer vehicle list failed")
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         if cursor: cursor.close()
-        if conn and conn.is_connected(): conn.close()
+        if conn and not conn.closed: conn.close()
 
 
 @app.route("/api/admin-payments")
@@ -773,7 +768,7 @@ def admin_payment_history():
     conn = cursor = None
     try:
         conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor(row_factory=dict_row)
         cursor.execute(
             """SELECT * FROM (
                  SELECT 'VEHICLE REGISTRATION' AS payment_type, vrp.id,
@@ -799,12 +794,12 @@ def admin_payment_history():
                ORDER BY created_at DESC, id DESC LIMIT 500"""
         )
         return jsonify(convert_datetime_rows(cursor.fetchall()))
-    except mysql.connector.Error as e:
+    except psycopg.Error as e:
         app.logger.exception("Admin payment history failed")
         return jsonify({"status": "error", "message": str(e)}), 500
     finally:
         if cursor: cursor.close()
-        if conn and conn.is_connected(): conn.close()
+        if conn and not conn.closed: conn.close()
 
 
 @app.route("/api/access")
@@ -829,11 +824,7 @@ def access_logs():
 
 
 
-        cursor = conn.cursor(
-
-            dictionary=True
-
-        )
+        cursor = conn.cursor(row_factory=dict_row)
 
 
 
@@ -883,13 +874,13 @@ def access_logs():
 
 
 
-    except mysql.connector.Error as e:
+    except psycopg.Error as e:
 
 
 
         print(
 
-            "[MYSQL ERROR]",
+            "[POSTGRESQL ERROR]",
 
             e
 
@@ -923,7 +914,7 @@ def access_logs():
 
 
 
-        if conn and conn.is_connected():
+        if conn and not conn.closed:
 
             conn.close()
 
@@ -961,11 +952,7 @@ def login_activity():
 
 
 
-        cursor = conn.cursor(
-
-            dictionary=True
-
-        )
+        cursor = conn.cursor(row_factory=dict_row)
 
 
 
@@ -1021,13 +1008,13 @@ def login_activity():
 
 
 
-    except mysql.connector.Error as e:
+    except psycopg.Error as e:
 
 
 
         print(
 
-            "[MYSQL LOGIN ACTIVITY ERROR]",
+            "[POSTGRESQL LOGIN ACTIVITY ERROR]",
 
             e
 
@@ -1061,7 +1048,7 @@ def login_activity():
 
 
 
-        if conn and conn.is_connected():
+        if conn and not conn.closed:
 
             conn.close()
 

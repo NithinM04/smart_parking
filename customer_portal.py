@@ -1,6 +1,6 @@
 """Customer portal and Razorpay integration for GUPIO Smart Parking.
 
-This module is registered by app.py and uses the existing MySQL connection.
+This module is registered by app.py and uses the shared PostgreSQL connection.
 Razorpay secrets are read from server environment variables.
 """
 
@@ -13,7 +13,8 @@ import uuid
 from datetime import datetime, timedelta
 from functools import wraps
 
-import mysql.connector
+import psycopg
+from psycopg.rows import dict_row
 import razorpay
 from flask import (
     Blueprint, abort, current_app, flash, jsonify, redirect, render_template,
@@ -150,24 +151,25 @@ def customer_register():
         conn = cursor = None
         try:
             conn = _db()
-            cursor = conn.cursor()
+            cursor = conn.cursor(row_factory=dict_row)
             cursor.execute(
                 """INSERT INTO customers
                    (full_name, email, phone, password_hash, status)
-                   VALUES (%s, %s, %s, %s, 'ACTIVE')""",
+                   VALUES (%s, %s, %s, %s, 'ACTIVE') RETURNING id""",
                 (name, email, phone or None, generate_password_hash(password)),
             )
+            new_customer = cursor.fetchone()
             conn.commit()
-            session["customer_id"] = cursor.lastrowid
+            session["customer_id"] = new_customer["id"]
             session["customer_name"] = name
             session.permanent = True
             flash("Your GUPIO customer account has been created.", "success")
             return redirect(url_for("customer.customer_dashboard"))
-        except mysql.connector.IntegrityError:
+        except psycopg.IntegrityError:
             if conn:
                 conn.rollback()
             flash("An account with this email already exists. Please sign in.", "error")
-        except mysql.connector.Error:
+        except psycopg.Error:
             if conn:
                 conn.rollback()
             current_app.logger.exception("Customer registration database error")
@@ -175,7 +177,7 @@ def customer_register():
         finally:
             if cursor:
                 cursor.close()
-            if conn and conn.is_connected():
+            if conn and not conn.closed:
                 conn.close()
     return render_template("customer_register.html")
 
@@ -188,7 +190,7 @@ def customer_login():
         conn = cursor = None
         try:
             conn = _db()
-            cursor = conn.cursor(dictionary=True)
+            cursor = conn.cursor(row_factory=dict_row)
             cursor.execute(
                 """SELECT id, full_name, password_hash, status
                    FROM customers WHERE email = %s LIMIT 1""",
@@ -204,13 +206,13 @@ def customer_login():
                 session.permanent = True
                 return redirect(url_for("customer.customer_dashboard"))
             flash("Invalid email or password.", "error")
-        except mysql.connector.Error:
+        except psycopg.Error:
             current_app.logger.exception("Customer login database error")
             flash("Unable to sign in right now. Please try again.", "error")
         finally:
             if cursor:
                 cursor.close()
-            if conn and conn.is_connected():
+            if conn and not conn.closed:
                 conn.close()
     return render_template("customer_login.html")
 
@@ -265,7 +267,7 @@ def customer_dashboard():
     conn = cursor = None
     try:
         conn = _db()
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor(row_factory=dict_row)
         cursor.execute(
             """SELECT cv.id, cv.vehicle_number, cv.nickname, cv.created_at,
                       (SELECT vrp.status FROM vehicle_registration_payments vrp
@@ -275,7 +277,7 @@ def customer_dashboard():
                        WHERE vrp.vehicle_id = cv.id AND vrp.customer_id = cv.customer_id
                        ORDER BY vrp.id DESC LIMIT 1) AS registration_payment_id
                FROM customer_vehicles cv
-               WHERE cv.customer_id = %s AND cv.is_active = 1
+               WHERE cv.customer_id = %s AND cv.is_active IS TRUE
                ORDER BY cv.id DESC""",
             (session["customer_id"],),
         )
@@ -290,7 +292,7 @@ def customer_dashboard():
                INNER JOIN customer_vehicles cv
                  ON REPLACE(REPLACE(UPPER(ps.vehicle_number), ' ', ''), '-', '') =
                     cv.vehicle_number_normalized
-               WHERE cv.customer_id = %s AND cv.is_active = 1
+               WHERE cv.customer_id = %s AND cv.is_active IS TRUE
                  AND ps.status = 'PARKED' AND ps.exit_time IS NULL
                ORDER BY ps.entry_time DESC""",
             (session["customer_id"],),
@@ -309,13 +311,13 @@ def customer_dashboard():
             payments=payments,
             razorpay_key_id=os.getenv("RAZORPAY_KEY_ID", ""),
         )
-    except mysql.connector.Error:
+    except psycopg.Error:
         current_app.logger.exception("Customer dashboard database error")
         abort(500)
     finally:
         if cursor:
             cursor.close()
-        if conn and conn.is_connected():
+        if conn and not conn.closed:
             conn.close()
 
 
@@ -331,8 +333,8 @@ def add_customer_vehicle():
     conn = cursor = None
     try:
         conn = _db()
-        cursor = conn.cursor(dictionary=True)
-        conn.start_transaction()
+        cursor = conn.cursor(row_factory=dict_row)
+        # Psycopg starts a transaction automatically on the first SQL statement.
         cursor.execute(
             """SELECT id, customer_id, is_active FROM customer_vehicles
                WHERE vehicle_number_normalized = %s LIMIT 1 FOR UPDATE""",
@@ -345,7 +347,7 @@ def add_customer_vehicle():
                 flash("This vehicle is already linked to another customer account.", "error")
                 return redirect(url_for("customer.customer_dashboard"))
             cursor.execute(
-                """UPDATE customer_vehicles SET is_active = 1, nickname = %s
+                """UPDATE customer_vehicles SET is_active = TRUE, nickname = %s
                    WHERE id = %s""",
                 (nickname or None, existing["id"]),
             )
@@ -357,16 +359,16 @@ def add_customer_vehicle():
             cursor.execute(
                 """INSERT INTO customer_vehicles
                    (customer_id, vehicle_number, vehicle_number_normalized, nickname, is_active)
-                   VALUES (%s, %s, %s, %s, 1)""",
+                   VALUES (%s, %s, %s, %s, TRUE)""",
                 (session["customer_id"], plate, plate, nickname or None),
             )
             flash("Vehicle added successfully.", "success")
         conn.commit()
-    except mysql.connector.IntegrityError:
+    except psycopg.IntegrityError:
         if conn:
             conn.rollback()
         flash("This vehicle is already linked to a customer account.", "error")
-    except mysql.connector.Error:
+    except psycopg.Error:
         if conn:
             conn.rollback()
         current_app.logger.exception("Add customer vehicle error")
@@ -374,7 +376,7 @@ def add_customer_vehicle():
     finally:
         if cursor:
             cursor.close()
-        if conn and conn.is_connected():
+        if conn and not conn.closed:
             conn.close()
     return redirect(url_for("customer.customer_dashboard"))
 
@@ -386,11 +388,11 @@ def remove_customer_vehicle(vehicle_id):
     conn = cursor = None
     try:
         conn = _db()
-        cursor = conn.cursor(dictionary=True)
-        conn.start_transaction()
+        cursor = conn.cursor(row_factory=dict_row)
+        # Psycopg starts a transaction automatically on the first SQL statement.
         cursor.execute(
             """SELECT id, vehicle_number_normalized FROM customer_vehicles
-               WHERE id = %s AND customer_id = %s AND is_active = 1
+               WHERE id = %s AND customer_id = %s AND is_active = TRUE
                FOR UPDATE""",
             (vehicle_id, session["customer_id"]),
         )
@@ -415,7 +417,7 @@ def remove_customer_vehicle(vehicle_id):
             return redirect(url_for("customer.customer_dashboard"))
 
         cursor.execute(
-            """UPDATE customer_vehicles SET is_active = 0
+            """UPDATE customer_vehicles SET is_active = FALSE
                WHERE id = %s AND customer_id = %s""",
             (vehicle_id, session["customer_id"]),
         )
@@ -424,7 +426,7 @@ def remove_customer_vehicle(vehicle_id):
             "Vehicle removed from your active list. Payment and receipt history has been retained.",
             "success",
         )
-    except mysql.connector.Error:
+    except psycopg.Error:
         if conn:
             conn.rollback()
         current_app.logger.exception("Remove customer vehicle failed")
@@ -432,7 +434,7 @@ def remove_customer_vehicle(vehicle_id):
     finally:
         if cursor:
             cursor.close()
-        if conn and conn.is_connected():
+        if conn and not conn.closed:
             conn.close()
     return redirect(url_for("customer.customer_dashboard"))
 
@@ -450,11 +452,11 @@ def create_vehicle_registration_order():
     try:
         client = _razorpay_client()
         conn = _db()
-        cursor = conn.cursor(dictionary=True)
-        conn.start_transaction()
+        cursor = conn.cursor(row_factory=dict_row)
+        # Psycopg starts a transaction automatically on the first SQL statement.
         cursor.execute(
             """SELECT id, vehicle_number FROM customer_vehicles
-               WHERE id = %s AND customer_id = %s AND is_active = 1 FOR UPDATE""",
+               WHERE id = %s AND customer_id = %s AND is_active = TRUE FOR UPDATE""",
             (vehicle_id, session["customer_id"]),
         )
         vehicle = cursor.fetchone()
@@ -522,7 +524,7 @@ def create_vehicle_registration_order():
     finally:
         if cursor:
             cursor.close()
-        if conn and conn.is_connected():
+        if conn and not conn.closed:
             conn.close()
 
 
@@ -557,8 +559,8 @@ def verify_vehicle_registration_payment():
             }), 202
 
         conn = _db()
-        cursor = conn.cursor(dictionary=True)
-        conn.start_transaction()
+        cursor = conn.cursor(row_factory=dict_row)
+        # Psycopg starts a transaction automatically on the first SQL statement.
         cursor.execute(
             """SELECT * FROM vehicle_registration_payments
                WHERE razorpay_order_id = %s AND customer_id = %s FOR UPDATE""",
@@ -609,7 +611,7 @@ def verify_vehicle_registration_payment():
     finally:
         if cursor:
             cursor.close()
-        if conn and conn.is_connected():
+        if conn and not conn.closed:
             conn.close()
 
 
@@ -626,8 +628,8 @@ def create_payment_qr():
     try:
         client = _razorpay_client()
         conn = _db()
-        cursor = conn.cursor(dictionary=True)
-        conn.start_transaction()
+        cursor = conn.cursor(row_factory=dict_row)
+        # Psycopg starts a transaction automatically on the first SQL statement.
         parking = _customer_session(cursor, session["customer_id"], parking_session_id, lock=True)
         if not parking or parking["status"] != "PARKED" or parking["exit_time"] is not None:
             conn.rollback()
@@ -678,10 +680,10 @@ def create_payment_qr():
         cursor.execute(
             """INSERT INTO payments
                (customer_id, parking_session_id, amount_paise, currency, razorpay_order_id, status)
-               VALUES (%s, %s, %s, 'INR', NULL, 'CREATED')""",
+               VALUES (%s, %s, %s, 'INR', NULL, 'CREATED') RETURNING id""",
             (session["customer_id"], parking_session_id, FIXED_FEE_PAISE),
         )
-        payment_id = cursor.lastrowid
+        payment_id = cursor.fetchone()["id"]
         cursor.execute(
             """INSERT INTO payment_qr_codes
                (payment_id, razorpay_qr_code_id, image_url, status, created_at)
@@ -705,7 +707,7 @@ def create_payment_qr():
     finally:
         if cursor:
             cursor.close()
-        if conn and conn.is_connected():
+        if conn and not conn.closed:
             conn.close()
 
 
@@ -715,7 +717,7 @@ def payment_qr_status(payment_id):
     conn = cursor = None
     try:
         conn = _db()
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor(row_factory=dict_row)
         cursor.execute(
             """SELECT p.id, p.status, p.razorpay_payment_id, p.parking_session_id,
                       q.razorpay_qr_code_id, q.status AS qr_status
@@ -732,13 +734,13 @@ def payment_qr_status(payment_id):
             if cursor.fetchone():
                 result["receipt_url"] = url_for("customer.payment_receipt", payment_id=payment_id)
         return jsonify(result)
-    except mysql.connector.Error:
+    except psycopg.Error:
         current_app.logger.exception("QR payment status lookup failed")
         return jsonify({"status": "error", "message": "Unable to check payment status."}), 500
     finally:
         if cursor:
             cursor.close()
-        if conn and conn.is_connected():
+        if conn and not conn.closed:
             conn.close()
 
 
@@ -755,8 +757,8 @@ def create_payment_order():
     try:
         client = _razorpay_client()
         conn = _db()
-        cursor = conn.cursor(dictionary=True)
-        conn.start_transaction()
+        cursor = conn.cursor(row_factory=dict_row)
+        # Psycopg starts a transaction automatically on the first SQL statement.
         parking = _customer_session(cursor, session["customer_id"], parking_session_id, lock=True)
         if not parking or parking["status"] != "PARKED" or parking["exit_time"] is not None:
             conn.rollback()
@@ -800,7 +802,7 @@ def create_payment_order():
     finally:
         if cursor:
             cursor.close()
-        if conn and conn.is_connected():
+        if conn and not conn.closed:
             conn.close()
 
 
@@ -835,8 +837,8 @@ def verify_payment():
             }), 202
 
         conn = _db()
-        cursor = conn.cursor(dictionary=True)
-        conn.start_transaction()
+        cursor = conn.cursor(row_factory=dict_row)
+        # Psycopg starts a transaction automatically on the first SQL statement.
         cursor.execute(
             "SELECT * FROM payments WHERE razorpay_order_id = %s AND customer_id = %s FOR UPDATE",
             (order_id, session["customer_id"]),
@@ -864,7 +866,7 @@ def verify_payment():
     finally:
         if cursor:
             cursor.close()
-        if conn and conn.is_connected():
+        if conn and not conn.closed:
             conn.close()
 
 
@@ -874,16 +876,16 @@ def payment_history():
     conn = cursor = None
     try:
         conn = _db()
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor(row_factory=dict_row)
         rows = _get_customer_payment_history(cursor, session["customer_id"], 200)
         return render_template("customer_history.html", payments=rows)
-    except mysql.connector.Error:
+    except psycopg.Error:
         current_app.logger.exception("Payment history error")
         abort(500)
     finally:
         if cursor:
             cursor.close()
-        if conn and conn.is_connected():
+        if conn and not conn.closed:
             conn.close()
 
 
@@ -893,7 +895,7 @@ def payment_receipt(payment_id):
     conn = cursor = None
     try:
         conn = _db()
-        cursor = conn.cursor(dictionary=True)
+        cursor = conn.cursor(row_factory=dict_row)
         cursor.execute(
             """SELECT p.id, p.parking_session_id, p.amount_paise, p.currency, p.status,
                       p.razorpay_payment_id, p.captured_at, ps.vehicle_number,
@@ -909,13 +911,13 @@ def payment_receipt(payment_id):
         if not receipt:
             abort(404)
         return render_template("customer_receipt.html", receipt=receipt)
-    except mysql.connector.Error:
+    except psycopg.Error:
         current_app.logger.exception("Receipt lookup error")
         abort(500)
     finally:
         if cursor:
             cursor.close()
-        if conn and conn.is_connected():
+        if conn and not conn.closed:
             conn.close()
 
 
@@ -957,12 +959,13 @@ def register_customer_portal(app, db_connection):
         conn = cursor = None
         try:
             conn = db_connection()
-            cursor = conn.cursor(dictionary=True)
-            conn.start_transaction()
+            cursor = conn.cursor(row_factory=dict_row)
+            # Psycopg starts a transaction automatically on the first SQL statement.
             cursor.execute(
-                """INSERT IGNORE INTO payment_webhooks
+                """INSERT INTO payment_webhooks
                    (event_id, event_type, payload_sha256)
-                   VALUES (%s, %s, %s)""",
+                   VALUES (%s, %s, %s)
+                   ON CONFLICT (event_id) DO NOTHING""",
                 (event_id, event_type, hashlib.sha256(raw_body).hexdigest()),
             )
             if cursor.rowcount == 0:
@@ -1068,5 +1071,5 @@ def register_customer_portal(app, db_connection):
         finally:
             if cursor:
                 cursor.close()
-            if conn and conn.is_connected():
+            if conn and not conn.closed:
                 conn.close()
